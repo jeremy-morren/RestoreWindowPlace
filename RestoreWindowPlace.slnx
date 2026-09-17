@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="RestoreWindowPlace/RestoreWindowPlace.csproj" />
+  <Project Path="RestoreWindowPlaceTest.Net/RestoreWindowPlaceTest.Net.csproj">
+    <BuildDependency Project="RestoreWindowPlace/RestoreWindowPlace.csproj" />
+  </Project>
+  <Project Path="RestoreWindowPlaceTest/RestoreWindowPlaceTest.csproj" />
+</Solution>
