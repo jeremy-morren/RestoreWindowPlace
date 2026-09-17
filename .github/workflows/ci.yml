@@ -60,12 +60,24 @@ jobs:
       # .NET Framework 4.8.1 added native arm64 support, so the net472 arm64 leg is native rather than x64 emulation.
       #
       # The tests that read the real desktop fail when no monitor is attached
+      # TargetLatestRuntimePatch is also set in the test project; repeated here because a
+      # RID build that binds to the newest patch the SDK knows of will not launch on a
+      # runner carrying an earlier one, and roll-forward only goes up.
       - name: Test
         run: >
           dotnet test
           --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
           --configuration Release
           --arch ${{ matrix.arch }}
+          -p:TargetLatestRuntimePatch=false
+
+      - name: Show the framework the test app asked for
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts/bin -Recurse -Filter *.runtimeconfig.json |
+            ForEach-Object { $_.FullName; Get-Content $_.FullName }
+          dotnet --info
 
   # The runner has one display, so the jobs above never reach the part of MonitorLayout this
   # library exists for: relative positioning, and a key that changes with the arrangement.
@@ -138,6 +150,7 @@ jobs:
           --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
           --configuration Release
           --arch ${{ matrix.arch }}
+          -p:TargetLatestRuntimePatch=false
 
   package:
     needs: test
