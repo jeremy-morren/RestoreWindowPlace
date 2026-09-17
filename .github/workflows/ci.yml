@@ -16,7 +16,6 @@ env:
   # No quotes: this is a block scalar, so they would be part of the value.
   DOTNET_VERSION: |
     10.0.x
-    8.0.x
 
   # Amyuni's usbmmidd v2 virtual monitor driver (files dated 2021-09-09),
   # used by the multi-monitor job below. Copyright 2014-2021 Amyuni Technologies Inc.
