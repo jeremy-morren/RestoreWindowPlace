@@ -222,15 +222,3 @@ jobs:
           name: package
           path: artifacts/package/release/*.nupkg
           if-no-files-found: error
-
-  # publish-unit-test-result-action needs the event that triggered this run in order to find
-  # the pull request to comment on, and a workflow_run job cannot see it otherwise.
-  event-file:
-    name: event file
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/upload-artifact@v7
-        with:
-          name: Event File
-          path: ${{ github.event_path }}
