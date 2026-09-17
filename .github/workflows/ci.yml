@@ -65,8 +65,13 @@ jobs:
           # patch of it, then fails looking for a matching Microsoft.NETCore.App that was
           # never installed beside it. An empty directory leaves one self-consistent pair.
           $root = "${env:RUNNER_TEMP}\dotnet-x86"
-          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))) `
-            -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
+          $install = [scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))
+
+          # The base runtime first: it is what lays down the host. -Runtime windowsdesktop
+          # only adds the shared framework, so on its own it leaves a root with no
+          # hostfxr.dll and the apphost reports ".NET location: Not found".
+          & $install -Channel 8.0 -Runtime dotnet -Architecture x86 -InstallDir $root
+          & $install -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
 
           # setup-dotnet points DOTNET_ROOT at the x64 install. A 32-bit apphost that follows
           # it loads an x64 hostfxr and dies with 0x800700C1, so give the x86 host a root of
@@ -89,14 +94,14 @@ jobs:
           -p:TargetLatestRuntimePatch=false
           --report-trx
           --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}.trx
-          --results-directory ${{ github.workspace }}/TestResults
+          --results-directory ${{ runner.temp }}/TestResults
 
       - name: Publish results
         uses: dorny/test-reporter@v2
         if: always()
         with:
           name: RestoreWindowPosition - ${{ matrix.label }} ${{ matrix.arch }}
-          path: TestResults/*.trx
+          path: ${{ runner.temp }}/TestResults/*.trx
           reporter: dotnet-trx
           fail-on-error: false
 
@@ -104,7 +109,7 @@ jobs:
         if: always()
         with:
           name: trx-${{ matrix.label }}-${{ matrix.arch }}
-          path: TestResults/*.trx
+          path: ${{ runner.temp }}/TestResults/*.trx
           if-no-files-found: warn
 
       - name: Show the framework the test app asked for
@@ -113,6 +118,10 @@ jobs:
         run: |
           Get-ChildItem artifacts/bin -Recurse -Filter *.runtimeconfig.json |
             ForEach-Object { $_.FullName; Get-Content $_.FullName }
+          if ($env:DOTNET_ROOT_X86) {
+            "--- $env:DOTNET_ROOT_X86 ---"
+            Get-ChildItem $env:DOTNET_ROOT_X86 -Recurse -Depth 2 -Directory | Select-Object -Expand FullName
+          }
           dotnet --info
 
   # The runner has one display, so the jobs above never reach the part of MonitorLayout this
@@ -151,8 +160,13 @@ jobs:
         shell: pwsh
         run: |
           $root = "${env:RUNNER_TEMP}\dotnet-x86"
-          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))) `
-            -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
+          $install = [scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))
+
+          # The base runtime first: it is what lays down the host. -Runtime windowsdesktop
+          # only adds the shared framework, so on its own it leaves a root with no
+          # hostfxr.dll and the apphost reports ".NET location: Not found".
+          & $install -Channel 8.0 -Runtime dotnet -Architecture x86 -InstallDir $root
+          & $install -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
 
           "DOTNET_ROOT_X86=$root" >> $env:GITHUB_ENV
           "DOTNET_ROOT(x86)=$root" >> $env:GITHUB_ENV
@@ -162,15 +176,18 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          Invoke-WebRequest $env:USBMMIDD_URL -OutFile usbmmidd.zip
-          $actual = (Get-FileHash usbmmidd.zip -Algorithm SHA256).Hash
+          $zip = Join-Path $env:RUNNER_TEMP 'usbmmidd.zip'
+          $unpacked = Join-Path $env:RUNNER_TEMP 'usbmmidd'
+
+          Invoke-WebRequest $env:USBMMIDD_URL -OutFile $zip
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash
           if ($actual -ne $env:USBMMIDD_SHA256) {
             throw "usbmmidd checksum mismatch: expected $env:USBMMIDD_SHA256, got $actual. " +
                   "The vendor has replaced the download; review the new file before updating the pin."
           }
 
-          Expand-Archive usbmmidd.zip -DestinationPath usbmmidd
-          Push-Location usbmmidd\usbmmidd_v2
+          Expand-Archive $zip -DestinationPath $unpacked
+          Push-Location (Join-Path $unpacked 'usbmmidd_v2')
           .\deviceinstaller64.exe install usbmmidd.inf usbmmidd
           .\deviceinstaller64.exe enableidd 1
 
@@ -191,14 +208,14 @@ jobs:
           -p:TargetLatestRuntimePatch=false
           --report-trx
           --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}-2mon.trx
-          --results-directory ${{ github.workspace }}/TestResults
+          --results-directory ${{ runner.temp }}/TestResults
 
       - name: Publish results
         uses: dorny/test-reporter@v2
         if: always()
         with:
           name: RestoreWindowPosition - ${{ matrix.label }} ${{ matrix.arch }} (two monitors)
-          path: TestResults/*.trx
+          path: ${{ runner.temp }}/TestResults/*.trx
           reporter: dotnet-trx
           fail-on-error: false
 
@@ -206,7 +223,7 @@ jobs:
         if: always()
         with:
           name: trx-${{ matrix.label }}-${{ matrix.arch }}-2mon
-          path: TestResults/*.trx
+          path: ${{ runner.temp }}/TestResults/*.trx
           if-no-files-found: warn
 
   package:
