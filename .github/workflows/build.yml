@@ -1,4 +1,4 @@
-name: CI
+name: Build
 
 on:
   push:
@@ -23,13 +23,6 @@ env:
     10.0.x
     8.0.x
 
-  # Amyuni's usbmmidd v2 virtual monitor driver (files dated 2021-09-09),
-  # used by the multi-monitor job below. Copyright 2014-2021 Amyuni Technologies Inc.
-  #
-  # Amyuni publishes one unversioned URL and no GitHub releases.
-  # Checksum is used to ensure the integrity of the downloaded file.
-  USBMMIDD_URL: https://www.amyuni.com/downloads/usbmmidd_v2.zip
-  USBMMIDD_SHA256: 629b51e9944762bae73948171c65d09a79595cf4c771a82ebc003fbba5b24f51
 
 jobs:
   # One leg per framework and architecture: six runs, each reporting under its own title.
@@ -161,17 +154,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $zip = Join-Path $env:RUNNER_TEMP 'usbmmidd.zip'
+          # The archive is committed under usbmmidd_v2; the readme beside it covers what
+          # it is, where it came from, and how to update it.
           $unpacked = Join-Path $env:RUNNER_TEMP 'usbmmidd'
+          Expand-Archive usbmmidd_v2/usbmmidd_v2.zip -DestinationPath $unpacked
 
-          Invoke-WebRequest $env:USBMMIDD_URL -OutFile $zip
-          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash
-          if ($actual -ne $env:USBMMIDD_SHA256) {
-            throw "usbmmidd checksum mismatch: expected $env:USBMMIDD_SHA256, got $actual. " +
-                  "The vendor has replaced the download; review the new file before updating the pin."
-          }
-
-          Expand-Archive $zip -DestinationPath $unpacked
           Push-Location (Join-Path $unpacked 'usbmmidd_v2')
           .\deviceinstaller64.exe install usbmmidd.inf usbmmidd
           .\deviceinstaller64.exe enableidd 1
@@ -222,3 +209,17 @@ jobs:
           name: package
           path: artifacts/package/release/*.nupkg
           if-no-files-found: error
+
+  # publish-unit-test-result-action reads the event that triggered this run to tell
+  # whether the pull request came from a fork. Left with the workflow_run payload it
+  # assumes one and quietly drops the comment. Its own job, so it still runs when the
+  # matrix fails - which is when the results matter most.
+  event-file:
+    name: event file
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
