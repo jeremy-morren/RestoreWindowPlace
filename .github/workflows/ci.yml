@@ -7,6 +7,11 @@ on:
   workflow_dispatch:
 
 env:
+  # setup-dotnet takes the version literally, so this is a floating patch band rather than
+  # an exact build. global.json still pins the SDK for local builds and selects the
+  # Microsoft.Testing.Platform runner for dotnet test.
+  DOTNET_VERSION: '10.0.x'
+
   # Amyuni's usbmmidd v2 virtual monitor driver (files dated 2021-09-09), used by the
   # multi-monitor job below. Copyright 2014-2021 Amyuni Technologies Inc.
   #
@@ -33,7 +38,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       # setup-dotnet installs for the host architecture only
       # the net8.0-windows tests use WPF, so the x86 leg needs a 32-bit desktop runtime to run against.
@@ -81,7 +86,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       # Same reason as the test job above: setup-dotnet only installs for the host
       # architecture, and the net8.0-windows tests need WPF.
@@ -122,17 +127,7 @@ jobs:
           dotnet test
           --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
           --configuration Release
-          --arch x64
-
-      # - name: Detach the virtual monitor
-      #   if: always()
-      #   shell: pwsh
-      #   run: |
-      #     if (Test-Path usbmmidd\usbmmidd_v2\deviceinstaller64.exe) {
-      #       Push-Location usbmmidd\usbmmidd_v2
-      #       .\deviceinstaller64.exe enableidd 0
-      #       Pop-Location
-      #     }
+          --arch ${{ matrix.arch }}
 
   package:
     needs: test
@@ -143,7 +138,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Build
         run: dotnet build RestoreWindowPosition.slnx -c Release
