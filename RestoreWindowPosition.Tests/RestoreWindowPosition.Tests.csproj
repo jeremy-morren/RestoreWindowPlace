@@ -4,19 +4,10 @@
         <!-- xunit.v3 needs net8.0 or later on the modern side; the library's net7.0-windows assets serve it. -->
         <TargetFrameworks>net8.0-windows;net472</TargetFrameworks>
         <OutputType>Exe</OutputType>
-
-        <!--
-            Running the suite per architecture means building with a RuntimeIdentifier, and that
-            makes the SDK bind to the newest patch it knows of rather than to 8.0.0. The app then
-            demands, say, 8.0.31 from a machine that has 8.0.30, and roll-forward only goes up.
-            Ask for the band instead and take whatever patch is installed.
-        -->
-        <TargetLatestRuntimePatch>false</TargetLatestRuntimePatch>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="xunit.v3.mtp-v2" Version="4.0.1" />
-        <!-- Registers the TRX report option; MTP rejects it outright without this. -->
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
         <PackageReference Include="FluentAssertions" Version="7.2.2" />
         <ProjectReference Include="..\RestoreWindowPosition\RestoreWindowPosition.csproj" />

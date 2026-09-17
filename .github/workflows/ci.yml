@@ -80,9 +80,9 @@ jobs:
 
       # The tests that read the real desktop fail when no monitor is attached.
       #
-      # TargetLatestRuntimePatch is also set in the test project; repeated here because a
-      # RID build that binds to the newest patch the SDK knows of will not launch on a
-      # runner carrying an earlier one, and roll-forward only goes up.
+      # Testing per architecture means building with a RuntimeIdentifier, which makes the
+      # SDK bind to the newest patch it ships knowledge of. That will not launch on a runner
+      # carrying an earlier one, and roll-forward only goes up, so ask for the band instead.
       - name: Test
         run: >
           dotnet test
@@ -103,17 +103,6 @@ jobs:
           path: ${{ runner.temp }}/TestResults/*.trx
           if-no-files-found: warn
 
-      - name: Show the framework the test app asked for
-        if: failure()
-        shell: pwsh
-        run: |
-          Get-ChildItem artifacts/bin -Recurse -Filter *.runtimeconfig.json |
-            ForEach-Object { $_.FullName; Get-Content $_.FullName }
-          if ($env:DOTNET_ROOT_X86) {
-            "--- $env:DOTNET_ROOT_X86 ---"
-            Get-ChildItem $env:DOTNET_ROOT_X86 -Recurse -Depth 2 -Directory | Select-Object -Expand FullName
-          }
-          dotnet --info
 
   # The runner has one display, so the jobs above never reach the part of MonitorLayout this
   # library exists for: relative positioning, and a key that changes with the arrangement.
