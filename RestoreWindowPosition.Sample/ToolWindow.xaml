@@ -1,8 +1,10 @@
 <Window x:Class="RestoreWindowPosition.Sample.ToolWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tool window" Height="220" Width="380">
-    <TextBlock Margin="12" TextWrapping="Wrap">
+        Title="Tool window" 
+        Height="220" Width="380">
+    <TextBlock Margin="12" 
+               TextWrapping="Wrap">
         This window registers itself in one line and saves when it closes, with no
         application-wide object involved.
     </TextBlock>

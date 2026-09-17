@@ -5,9 +5,8 @@ namespace RestoreWindowPosition.Sample;
 public partial class App : Application
 {
     /// <summary>
-    /// One store for the whole application. Windows that want a placement of their own can
-    /// take it from here, whether through <see cref="Placer"/> or through the
-    /// <c>RestoreWindowPosition</c> extension method.
+    /// One store for the whole application. Windows that want a placement of their own can take it from here, 
+    /// whether through <see cref="Placer"/> or through the <c>RestoreWindowPosition</c> extension method.
     /// </summary>
     public static IWindowPositionStore Store { get; } =
         new FileWindowPositionStore("placement.config", perMonitorLayout: true);

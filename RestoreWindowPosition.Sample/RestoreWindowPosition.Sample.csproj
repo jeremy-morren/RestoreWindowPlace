@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\RestoreWindowPosition\RestoreWindowPosition.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\RestoreWindowPosition\RestoreWindowPosition.csproj" />
+    </ItemGroup>
 
 </Project>

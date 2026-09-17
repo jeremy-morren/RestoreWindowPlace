@@ -6,12 +6,21 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  # setup-dotnet takes the version out of global.json literally, but we want latest sdk
-  DOTNET_VERSION: '10.0.x'
+# checks and pull-requests let the test reporter publish results onto the pull request.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
 
-  # Amyuni's usbmmidd v2 virtual monitor driver (files dated 2021-09-09), used by the
-  # multi-monitor job below. Copyright 2014-2021 Amyuni Technologies Inc.
+env:
+  # setup-dotnet takes the version out of global.json literally, but we want latest sdk.
+  # No quotes: this is a block scalar, so they would be part of the value.
+  DOTNET_VERSION: |
+    10.0.x
+    8.0.x
+
+  # Amyuni's usbmmidd v2 virtual monitor driver (files dated 2021-09-09),
+  # used by the multi-monitor job below. Copyright 2014-2021 Amyuni Technologies Inc.
   #
   # Amyuni publishes one unversioned URL and no GitHub releases.
   # Checksum is used to ensure the integrity of the downloaded file.
@@ -19,17 +28,24 @@ env:
   USBMMIDD_SHA256: 629b51e9944762bae73948171c65d09a79595cf4c771a82ebc003fbba5b24f51
 
 jobs:
+  # One leg per framework and architecture: six runs, each reporting under its own title.
+  #
+  # .NET Framework 4.8.1 added native arm64 support, so the net472 arm64 leg is native rather
+  # than x64 emulation.
   test:
-    name: test ${{ matrix.arch }}
+    name: ${{ matrix.label }} ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { runner: windows-latest, arch: x64 }
-          - { runner: windows-latest, arch: x86 }
-          - { runner: windows-11-arm, arch: arm64 }
+          - { runner: windows-latest, arch: x64, framework: net8.0-windows, label: net8.0 }
+          - { runner: windows-latest, arch: x64, framework: net472, label: net472 }
+          - { runner: windows-latest, arch: x86, framework: net8.0-windows, label: net8.0 }
+          - { runner: windows-latest, arch: x86, framework: net472, label: net472 }
+          - { runner: windows-11-arm, arch: arm64, framework: net8.0-windows, label: net8.0 }
+          - { runner: windows-11-arm, arch: arm64, framework: net472, label: net472 }
 
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +60,11 @@ jobs:
         if: matrix.arch == 'x86'
         shell: pwsh
         run: |
-          $root = "${env:ProgramFiles(x86)}\dotnet"
+          # A private root, not the machine-wide 32-bit one. That directory already carries a
+          # WindowsDesktop the runner image put there, and roll-forward picks the highest
+          # patch of it, then fails looking for a matching Microsoft.NETCore.App that was
+          # never installed beside it. An empty directory leaves one self-consistent pair.
+          $root = "${env:RUNNER_TEMP}\dotnet-x86"
           & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))) `
             -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
 
@@ -54,12 +74,8 @@ jobs:
           "DOTNET_ROOT_X86=$root" >> $env:GITHUB_ENV
           "DOTNET_ROOT(x86)=$root" >> $env:GITHUB_ENV
 
-      # Each leg runs both target frameworks, so the matrix is six runs in total:
-      # net8.0-windows and net472 on each of x86, x64 and arm64.
+      # The tests that read the real desktop fail when no monitor is attached.
       #
-      # .NET Framework 4.8.1 added native arm64 support, so the net472 arm64 leg is native rather than x64 emulation.
-      #
-      # The tests that read the real desktop fail when no monitor is attached
       # TargetLatestRuntimePatch is also set in the test project; repeated here because a
       # RID build that binds to the newest patch the SDK knows of will not launch on a
       # runner carrying an earlier one, and roll-forward only goes up.
@@ -68,8 +84,28 @@ jobs:
           dotnet test
           --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
           --configuration Release
+          --framework ${{ matrix.framework }}
           --arch ${{ matrix.arch }}
           -p:TargetLatestRuntimePatch=false
+          --report-trx
+          --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}.trx
+          --results-directory ${{ github.workspace }}/TestResults
+
+      - name: Publish results
+        uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: RestoreWindowPosition - ${{ matrix.label }} ${{ matrix.arch }}
+          path: TestResults/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trx-${{ matrix.label }}-${{ matrix.arch }}
+          path: TestResults/*.trx
+          if-no-files-found: warn
 
       - name: Show the framework the test app asked for
         if: failure()
@@ -83,19 +119,23 @@ jobs:
   # library exists for: relative positioning, and a key that changes with the arrangement.
   # Attaching a second, virtual monitor gives A_real_multi_monitor_arrangement_is_coherent something to check.
   #
-  # Kept as its own job so that a driver install broken by a runner image change is obvious 
+  # Kept as its own job so that a driver install broken by a runner image change is obvious
   # instead of looking like a test regression in one of the matrix legs.
   # usbmmidd ships 32- and 64-bit binaries only, so there is no arm64 equivalent of this job.
   multi-monitor:
-    name: test ${{ matrix.arch }} with a second monitor
+    name: ${{ matrix.label }} ${{ matrix.arch }} with a second monitor
     runs-on: windows-latest
 
-    # The driver is installed machine-wide, so what varies here is the bitness of the test
-    # process reading the arrangement back — which is the half that could get it wrong.
+    # The driver is installed machine-wide, so what varies here is the framework and bitness
+    # of the test process reading the arrangement back — the half that could get it wrong.
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, x86]
+        include:
+          - { arch: x64, framework: net8.0-windows, label: net8.0 }
+          - { arch: x64, framework: net472, label: net472 }
+          - { arch: x86, framework: net8.0-windows, label: net8.0 }
+          - { arch: x86, framework: net472, label: net472 }
 
     steps:
       - uses: actions/checkout@v4
@@ -110,13 +150,10 @@ jobs:
         if: matrix.arch == 'x86'
         shell: pwsh
         run: |
-          $root = "${env:ProgramFiles(x86)}\dotnet"
+          $root = "${env:RUNNER_TEMP}\dotnet-x86"
           & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))) `
             -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
 
-          # setup-dotnet points DOTNET_ROOT at the x64 install. A 32-bit apphost that follows
-          # it loads an x64 hostfxr and dies with 0x800700C1, so give the x86 host a root of
-          # its own: the architecture-specific variable is probed first.
           "DOTNET_ROOT_X86=$root" >> $env:GITHUB_ENV
           "DOTNET_ROOT(x86)=$root" >> $env:GITHUB_ENV
 
@@ -149,8 +186,28 @@ jobs:
           dotnet test
           --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
           --configuration Release
+          --framework ${{ matrix.framework }}
           --arch ${{ matrix.arch }}
           -p:TargetLatestRuntimePatch=false
+          --report-trx
+          --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}-2mon.trx
+          --results-directory ${{ github.workspace }}/TestResults
+
+      - name: Publish results
+        uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: RestoreWindowPosition - ${{ matrix.label }} ${{ matrix.arch }} (two monitors)
+          path: TestResults/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trx-${{ matrix.label }}-${{ matrix.arch }}-2mon
+          path: TestResults/*.trx
+          if-no-files-found: warn
 
   package:
     needs: test
