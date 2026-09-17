@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A push that supersedes an earlier one should not leave ten legs running behind it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # Results are published by the Test Results workflow, which runs with a token that also
 # works for pull requests from forks. This workflow only needs to read the code.
 permissions:
@@ -47,9 +52,9 @@ jobs:
           - { runner: windows-11-arm, arch: arm64, framework: net472, label: net472 }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -96,7 +101,7 @@ jobs:
           --results-directory ${{ runner.temp }}/TestResults
 
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: trx-${{ matrix.label }}-${{ matrix.arch }}
@@ -127,9 +132,9 @@ jobs:
           - { arch: x86, framework: net472, label: net472 }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -191,7 +196,7 @@ jobs:
           --results-directory ${{ runner.temp }}/TestResults
 
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: trx-${{ matrix.label }}-${{ matrix.arch }}-2mon
@@ -199,20 +204,20 @@ jobs:
           if-no-files-found: warn
 
   package:
-    needs: test
+    needs: [test, multi-monitor]
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Build
         run: dotnet build RestoreWindowPosition.slnx -c Release
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: package
           path: artifacts/package/release/*.nupkg
@@ -225,7 +230,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Event File
           path: ${{ github.event_path }}

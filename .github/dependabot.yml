@@ -1,0 +1,26 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # One pull request for the lot. These move together and each one costs a full CI
+    # matrix, so opening them separately buys nothing but runner minutes.
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    # The only packages here are the test project's, and xunit, the testing platform and
+    # its TRX extension are versioned in step with one another.
+    groups:
+      test:
+        patterns: ['*']
+    commit-message:
+      prefix: deps
