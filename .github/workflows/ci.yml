@@ -6,11 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
-# checks and pull-requests let the test reporter publish results onto the pull request.
+# Results are published by the Test Results workflow, which runs with a token that also
+# works for pull requests from forks. This workflow only needs to read the code.
 permissions:
   contents: read
-  checks: write
-  pull-requests: write
 
 env:
   # setup-dotnet takes the version out of global.json literally, but we want latest sdk.
@@ -96,14 +95,6 @@ jobs:
           --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}.trx
           --results-directory ${{ runner.temp }}/TestResults
 
-      - name: Publish results
-        uses: dorny/test-reporter@v2
-        if: always()
-        with:
-          name: RestoreWindowPosition - ${{ matrix.label }} ${{ matrix.arch }}
-          path: ${{ runner.temp }}/TestResults/*.trx
-          reporter: dotnet-trx
-          fail-on-error: false
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -210,14 +201,6 @@ jobs:
           --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}-2mon.trx
           --results-directory ${{ runner.temp }}/TestResults
 
-      - name: Publish results
-        uses: dorny/test-reporter@v2
-        if: always()
-        with:
-          name: RestoreWindowPosition - ${{ matrix.label }} ${{ matrix.arch }} (two monitors)
-          path: ${{ runner.temp }}/TestResults/*.trx
-          reporter: dotnet-trx
-          fail-on-error: false
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -245,3 +228,15 @@ jobs:
           name: package
           path: artifacts/package/release/*.nupkg
           if-no-files-found: error
+
+  # publish-unit-test-result-action needs the event that triggered this run in order to find
+  # the pull request to comment on, and a workflow_run job cannot see it otherwise.
+  event-file:
+    name: event file
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
