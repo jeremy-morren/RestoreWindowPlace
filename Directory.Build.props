@@ -15,10 +15,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
-    <!--
-      Defaults for every project. Directory.Build.props is imported before the project body,
-      so a project that needs something else simply sets it and wins.
-    -->
+    <!-- Defaults for every project -->
     <PropertyGroup>
         <TargetFrameworks>net7.0-windows;net472</TargetFrameworks>
         <UseWPF>true</UseWPF>
@@ -31,6 +28,7 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
+    <!-- Output and build artifacts -->
     <PropertyGroup>
         <UseArtifactsOutput>true</UseArtifactsOutput>
         <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
@@ -49,7 +47,7 @@
     <PropertyGroup>
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)RestoreWindowPosition.snk</AssemblyOriginatorKeyFile>
-        <RestoreWindowPositionPublicKey>00240000048000001401000006020000002400005253413100080000010001003dbb7e1604b1620cf4a194db3fa052f4d636edbec1267378ee3d60bfe2e9f392d393c0202aa6bfcee1831c4e27b7e8e4e298d0f4c3cd8c5c480759e5f8cc6db98cdcd713232501c6dfb4de1738e799ed24022f2664f825e55fafb3722457331821a03187eb94098e6abf5dc6c4f0cdf3e962d505661f41bd4f21c3199d64bad2f5759a2fe64df7642afcc671cd8e587a28ab157a186b32109de74efde90893baf60c7118458e77cd8298b20185188bd9de0141e37470888f6a71ef30bd618bcf755d89d11c05deb56745116a33d0d410ed95bb3b3a2efd53ae69d0e4cfe3e6d1ac7a5427555e7bb6922037ad16482bb9794cffc5681805e204ab9346cf3c91be</RestoreWindowPositionPublicKey>
+        <RestoreWindowPositionPublicKey>002400000480000014010000060200000024000052534131000800000100010065502e5473e0cc4bbfa91eb01ff36ef02fb2b0fe5e3fbebb29a186b7b21ade9468e002167703a9af373b24070d34e5a3a2e52821b56021951050cb5f42726c2a76b2af85aa7eb79b15986322c2e87c5301bee24ec9088148d396fbb714e2665f13ff397d9d66a68fdb1d19e3c963258bc77d8ef092146d0486da3fe0c64a880cd972f72b0a8ae736c549faee2e3e4ba9663c4ab6c45380938dcf723c246855d7712901e5d7e09cf4304a74bf64526d2106d034a7030ccfe3d3e8ed4ad1dd8d9bbcaf267b48c39ad404c3459b025e2d4864630817b63a0227262c8aff3173eeee74e6d163187532490041946e1d872df1a33bc748f548a9ffa51aee5bfc53f9a3</RestoreWindowPositionPublicKey>
     </PropertyGroup>
 
     <ItemGroup>
