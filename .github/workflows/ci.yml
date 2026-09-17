@@ -7,9 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  # setup-dotnet takes the version literally, so this is a floating patch band rather than
-  # an exact build. global.json still pins the SDK for local builds and selects the
-  # Microsoft.Testing.Platform runner for dotnet test.
+  # setup-dotnet takes the version out of global.json literally, but we want latest sdk
   DOTNET_VERSION: '10.0.x'
 
   # Amyuni's usbmmidd v2 virtual monitor driver (files dated 2021-09-09), used by the
@@ -45,10 +43,16 @@ jobs:
       - name: Install the x86 desktop runtime
         if: matrix.arch == 'x86'
         shell: pwsh
-        run: >-
-          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1)))
-          -Channel 8.0 -Runtime windowsdesktop -Architecture x86
-          -InstallDir "${env:ProgramFiles(x86)}\dotnet"
+        run: |
+          $root = "${env:ProgramFiles(x86)}\dotnet"
+          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))) `
+            -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
+
+          # setup-dotnet points DOTNET_ROOT at the x64 install. A 32-bit apphost that follows
+          # it loads an x64 hostfxr and dies with 0x800700C1, so give the x86 host a root of
+          # its own: the architecture-specific variable is probed first.
+          "DOTNET_ROOT_X86=$root" >> $env:GITHUB_ENV
+          "DOTNET_ROOT(x86)=$root" >> $env:GITHUB_ENV
 
       # Each leg runs both target frameworks, so the matrix is six runs in total:
       # net8.0-windows and net472 on each of x86, x64 and arm64.
@@ -93,10 +97,16 @@ jobs:
       - name: Install the x86 desktop runtime
         if: matrix.arch == 'x86'
         shell: pwsh
-        run: >-
-          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1)))
-          -Channel 8.0 -Runtime windowsdesktop -Architecture x86
-          -InstallDir "${env:ProgramFiles(x86)}\dotnet"
+        run: |
+          $root = "${env:ProgramFiles(x86)}\dotnet"
+          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))) `
+            -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
+
+          # setup-dotnet points DOTNET_ROOT at the x64 install. A 32-bit apphost that follows
+          # it loads an x64 hostfxr and dies with 0x800700C1, so give the x86 host a root of
+          # its own: the architecture-specific variable is probed first.
+          "DOTNET_ROOT_X86=$root" >> $env:GITHUB_ENV
+          "DOTNET_ROOT(x86)=$root" >> $env:GITHUB_ENV
 
       - name: Attach a virtual monitor
         shell: pwsh
