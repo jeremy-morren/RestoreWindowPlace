@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Amyuni's usbmmidd v2 virtual monitor driver (files dated 2021-09-09), used by the
+  # multi-monitor job below. Copyright 2014-2021 Amyuni Technologies Inc.
+  #
+  # Amyuni publishes one unversioned URL and no GitHub releases.
+  # Checksum is used to ensure the integrity of the downloaded file.
+  USBMMIDD_URL: https://www.amyuni.com/downloads/usbmmidd_v2.zip
+  USBMMIDD_SHA256: 629b51e9944762bae73948171c65d09a79595cf4c771a82ebc003fbba5b24f51
+
+jobs:
+  test:
+    name: test ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-latest, arch: x64 }
+          - { runner: windows-latest, arch: x86 }
+          - { runner: windows-11-arm, arch: arm64 }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # setup-dotnet installs for the host architecture only
+      # the net8.0-windows tests use WPF, so the x86 leg needs a 32-bit desktop runtime to run against.
+      - name: Install the x86 desktop runtime
+        if: matrix.arch == 'x86'
+        shell: pwsh
+        run: >-
+          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1)))
+          -Channel 8.0 -Runtime windowsdesktop -Architecture x86
+          -InstallDir "${env:ProgramFiles(x86)}\dotnet"
+
+      # Each leg runs both target frameworks, so the matrix is six runs in total:
+      # net8.0-windows and net472 on each of x86, x64 and arm64.
+      #
+      # .NET Framework 4.8.1 added native arm64 support, so the net472 arm64 leg is native rather than x64 emulation.
+      #
+      # The tests that read the real desktop fail when no monitor is attached
+      - name: Test
+        run: >
+          dotnet test
+          --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
+          --configuration Release
+          --arch ${{ matrix.arch }}
+
+  # The runner has one display, so the jobs above never reach the part of MonitorLayout this
+  # library exists for: relative positioning, and a key that changes with the arrangement.
+  # Attaching a second, virtual monitor gives A_real_multi_monitor_arrangement_is_coherent something to check.
+  #
+  # Kept as its own job so that a driver install broken by a runner image change is obvious 
+  # instead of looking like a test regression in one of the matrix legs.
+  # usbmmidd ships 32- and 64-bit binaries only, so there is no arm64 equivalent of this job.
+  multi-monitor:
+    name: test ${{ matrix.arch }} with a second monitor
+    runs-on: windows-latest
+
+    # The driver is installed machine-wide, so what varies here is the bitness of the test
+    # process reading the arrangement back — which is the half that could get it wrong.
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, x86]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Same reason as the test job above: setup-dotnet only installs for the host
+      # architecture, and the net8.0-windows tests need WPF.
+      - name: Install the x86 desktop runtime
+        if: matrix.arch == 'x86'
+        shell: pwsh
+        run: >-
+          & ([scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1)))
+          -Channel 8.0 -Runtime windowsdesktop -Architecture x86
+          -InstallDir "${env:ProgramFiles(x86)}\dotnet"
+
+      - name: Attach a virtual monitor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          Invoke-WebRequest $env:USBMMIDD_URL -OutFile usbmmidd.zip
+          $actual = (Get-FileHash usbmmidd.zip -Algorithm SHA256).Hash
+          if ($actual -ne $env:USBMMIDD_SHA256) {
+            throw "usbmmidd checksum mismatch: expected $env:USBMMIDD_SHA256, got $actual. " +
+                  "The vendor has replaced the download; review the new file before updating the pin."
+          }
+
+          Expand-Archive usbmmidd.zip -DestinationPath usbmmidd
+          Push-Location usbmmidd\usbmmidd_v2
+          .\deviceinstaller64.exe install usbmmidd.inf usbmmidd
+          .\deviceinstaller64.exe enableidd 1
+
+      - name: Show the arrangement the tests will see
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.Screen]::AllScreens |
+            Format-Table DeviceName, Primary, Bounds, WorkingArea -AutoSize
+
+      - name: Test
+        run: >-
+          dotnet test
+          --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
+          --configuration Release
+          --arch x64
+
+      # - name: Detach the virtual monitor
+      #   if: always()
+      #   shell: pwsh
+      #   run: |
+      #     if (Test-Path usbmmidd\usbmmidd_v2\deviceinstaller64.exe) {
+      #       Push-Location usbmmidd\usbmmidd_v2
+      #       .\deviceinstaller64.exe enableidd 0
+      #       Pop-Location
+      #     }
+
+  package:
+    needs: test
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build RestoreWindowPosition.slnx -c Release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error

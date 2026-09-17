@@ -1,0 +1,61 @@
+<Project>
+
+    <Import Project="version.props" />
+
+    <!-- Identity -->
+    <PropertyGroup>
+        <Authors>Jeremy Morren</Authors>
+        <Copyright>Copyright © Jeremy Morren 2026</Copyright>
+        <NeutralLanguage>en-US</NeutralLanguage>
+        <PackageProjectUrl>https://github.com/jeremy-morren/RestoreWindowPlace</PackageProjectUrl>
+        <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <!--
+      Defaults for every project. Directory.Build.props is imported before the project body,
+      so a project that needs something else simply sets it and wins.
+    -->
+    <PropertyGroup>
+        <TargetFrameworks>net7.0-windows;net472</TargetFrameworks>
+        <UseWPF>true</UseWPF>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <CheckEolTargetFramework>false</CheckEolTargetFramework>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <UseArtifactsOutput>true</UseArtifactsOutput>
+        <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+        <DebugType>embedded</DebugType>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    </PropertyGroup>
+
+    <!-- Deterministic builds for everyone -->
+    <PropertyGroup>
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+        <Deterministic>true</Deterministic>
+    </PropertyGroup>
+
+    <!-- Strong-name every assembly -->
+    <PropertyGroup>
+        <SignAssembly>true</SignAssembly>
+        <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)RestoreWindowPosition.snk</AssemblyOriginatorKeyFile>
+        <RestoreWindowPositionPublicKey>00240000048000001401000006020000002400005253413100080000010001003dbb7e1604b1620cf4a194db3fa052f4d636edbec1267378ee3d60bfe2e9f392d393c0202aa6bfcee1831c4e27b7e8e4e298d0f4c3cd8c5c480759e5f8cc6db98cdcd713232501c6dfb4de1738e799ed24022f2664f825e55fafb3722457331821a03187eb94098e6abf5dc6c4f0cdf3e962d505661f41bd4f21c3199d64bad2f5759a2fe64df7642afcc671cd8e587a28ab157a186b32109de74efde90893baf60c7118458e77cd8298b20185188bd9de0141e37470888f6a71ef30bd618bcf755d89d11c05deb56745116a33d0d410ed95bb3b3a2efd53ae69d0e4cfe3e6d1ac7a5427555e7bb6922037ad16482bb9794cffc5681805e204ab9346cf3c91be</RestoreWindowPositionPublicKey>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)README.md" 
+              Pack="true" 
+              PackagePath="/" />
+    </ItemGroup>
+
+</Project>

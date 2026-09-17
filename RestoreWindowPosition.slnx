@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="RestoreWindowPosition/RestoreWindowPosition.csproj" />
+  <Project Path="RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj" />
+  <Project Path="RestoreWindowPosition.Sample/RestoreWindowPosition.Sample.csproj" />
+</Solution>
