@@ -1,0 +1,60 @@
+<Project>
+
+    <Import Project="version.props" />
+
+    <!-- Identity -->
+    <PropertyGroup>
+        <Authors>Jeremy Morren</Authors>
+        <Copyright>Copyright © Jeremy Morren 2026</Copyright>
+        <NeutralLanguage>en-US</NeutralLanguage>
+        <PackageProjectUrl>https://github.com/jeremy-morren/RestoreWindowPlace</PackageProjectUrl>
+        <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <!-- Defaults for every project -->
+    <PropertyGroup>
+        <TargetFrameworks>net7.0-windows;net472</TargetFrameworks>
+        <UseWPF>true</UseWPF>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <CheckEolTargetFramework>false</CheckEolTargetFramework>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!-- Output and build artifacts -->
+    <PropertyGroup>
+        <UseArtifactsOutput>true</UseArtifactsOutput>
+        <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+        <DebugType>embedded</DebugType>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    </PropertyGroup>
+
+    <!-- Deterministic builds for everyone -->
+    <PropertyGroup>
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+        <Deterministic>true</Deterministic>
+    </PropertyGroup>
+
+    <!-- Strong-name every assembly -->
+    <PropertyGroup>
+        <SignAssembly>true</SignAssembly>
+        <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)RestoreWindowPosition.snk</AssemblyOriginatorKeyFile>
+        <RestoreWindowPositionPublicKey>002400000480000014010000060200000024000052534131000800000100010065502e5473e0cc4bbfa91eb01ff36ef02fb2b0fe5e3fbebb29a186b7b21ade9468e002167703a9af373b24070d34e5a3a2e52821b56021951050cb5f42726c2a76b2af85aa7eb79b15986322c2e87c5301bee24ec9088148d396fbb714e2665f13ff397d9d66a68fdb1d19e3c963258bc77d8ef092146d0486da3fe0c64a880cd972f72b0a8ae736c549faee2e3e4ba9663c4ab6c45380938dcf723c246855d7712901e5d7e09cf4304a74bf64526d2106d034a7030ccfe3d3e8ed4ad1dd8d9bbcaf267b48c39ad404c3459b025e2d4864630817b63a0227262c8aff3173eeee74e6d163187532490041946e1d872df1a33bc748f548a9ffa51aee5bfc53f9a3</RestoreWindowPositionPublicKey>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)README.md" 
+              Pack="true" 
+              PackagePath="/"
+              Visible="false"/>
+    </ItemGroup>
+
+</Project>

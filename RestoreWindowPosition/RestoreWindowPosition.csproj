@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <PackageId>RestoreWindowPosition</PackageId>
+        <Description>Save and restore the size and position of WPF windows.</Description>
+        <PackageTags>wpf;window;placement;position;restore</PackageTags>
+        <IsPackable>true</IsPackable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="RestoreWindowPosition.Tests" Key="$(RestoreWindowPositionPublicKey)" />
+    </ItemGroup>
+
+</Project>

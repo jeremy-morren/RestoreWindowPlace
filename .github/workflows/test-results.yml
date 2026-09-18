@@ -1,0 +1,46 @@
+name: Test Results
+
+# Runs after Build rather than inside it, on purpose.
+#
+# A pull request from a fork gets a read-only token, so a job in the CI workflow cannot post
+# back to the pull request. A workflow_run job runs in the context of this repository with a
+# token that can, while still only ever handling artifacts — it never checks out or executes
+# the contributor's code.
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion != 'skipped'
+
+    steps:
+      - name: Download the results
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: artifacts
+
+      # Posts a comment on the pull request and a check run on the commit: counts of passed,
+      # failed and skipped, and which of the ten framework-and-architecture runs they came
+      # from. Per-test annotations are off — pass or fail is what matters here, and the TRX
+      # artifacts on the CI run have the detail if anyone wants it.
+      - name: Publish
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          event_file: artifacts/Event File/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          files: artifacts/**/*.trx
+          check_name: Test results
+          check_run_annotations: none

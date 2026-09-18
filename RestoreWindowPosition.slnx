@@ -1,0 +1,19 @@
+<Solution>
+  <Project Path="RestoreWindowPosition/RestoreWindowPosition.csproj" />
+  <Project Path="RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj" />
+  <Project Path="RestoreWindowPosition.Sample/RestoreWindowPosition.Sample.csproj" />
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="global.json" />
+    <File Path="README.md" />
+    <File Path="RestoreWindowPosition.snk" />
+    <File Path="version.props" />
+  </Folder>
+  <Folder Name="/.github/">
+    <File Path=".github/dependabot.yml" />
+  </Folder>
+  <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/build.yml" />
+    <File Path=".github/workflows/test-results.yml" />
+  </Folder>
+</Solution>

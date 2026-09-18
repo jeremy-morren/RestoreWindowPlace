@@ -1,0 +1,234 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A push that supersedes an earlier one should not leave ten legs running behind it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Results are published by the Test Results workflow, which runs with a token that also
+# works for pull requests from forks. This workflow only needs to read the code.
+permissions:
+  contents: read
+
+env:
+  # setup-dotnet takes the version out of global.json literally, but we want latest sdk.
+  DOTNET_VERSION: |
+    10.0.x
+    8.0.x
+
+jobs:
+  # One leg per framework and architecture: six runs, each reporting under its own title.
+  # .NET Framework 4.8.1 added native arm64 support, so the net472 arm64 leg is native rather than x64 emulation.
+  test:
+    name: ${{ matrix.label }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-latest, arch: x64, framework: net8.0-windows, label: net8.0 }
+          - { runner: windows-latest, arch: x64, framework: net472, label: net472 }
+          - { runner: windows-latest, arch: x86, framework: net8.0-windows, label: net8.0 }
+          - { runner: windows-latest, arch: x86, framework: net472, label: net472 }
+          - { runner: windows-11-arm, arch: arm64, framework: net8.0-windows, label: net8.0 }
+          - { runner: windows-11-arm, arch: arm64, framework: net472, label: net472 }
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # setup-dotnet installs for the host architecture only
+      # the net8.0-windows tests use WPF, so the x86 leg needs a 32-bit desktop runtime to run against.
+      - name: Install the x86 desktop runtime
+        if: matrix.arch == 'x86'
+        shell: pwsh
+        run: |
+          # A private root, not the machine-wide 32-bit one. That directory already carries a
+          # WindowsDesktop the runner image put there, and roll-forward picks the highest
+          # patch of it, then fails looking for a matching Microsoft.NETCore.App that was
+          # never installed beside it. An empty directory leaves one self-consistent pair.
+          $root = "${env:RUNNER_TEMP}\dotnet-x86"
+          $install = [scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))
+
+          # The base runtime first: it is what lays down the host. -Runtime windowsdesktop
+          # only adds the shared framework, so on its own it leaves a root with no
+          # hostfxr.dll and the apphost reports ".NET location: Not found".
+          & $install -Channel 8.0 -Runtime dotnet -Architecture x86 -InstallDir $root
+          & $install -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
+
+          # setup-dotnet points DOTNET_ROOT at the x64 install. A 32-bit apphost that follows
+          # it loads an x64 hostfxr and dies with 0x800700C1, so give the x86 host a root of
+          # its own: the architecture-specific variable is probed first.
+          "DOTNET_ROOT_X86=$root" >> $env:GITHUB_ENV
+          "DOTNET_ROOT(x86)=$root" >> $env:GITHUB_ENV
+
+      # The tests that read the real desktop fail when no monitor is attached.
+      #
+      # Testing per architecture means building with a RuntimeIdentifier, which makes the SDK bind to the newest patch it ships knowledge of.
+      # That will not launch on a runner carrying an earlier one, and roll-forward only goes up, so ask for the band instead.
+      - name: Test
+        run: >-
+          dotnet test
+          --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
+          --configuration Release
+          --framework ${{ matrix.framework }}
+          --arch ${{ matrix.arch }}
+          -p:TargetLatestRuntimePatch=false
+          --report-trx
+          --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}.trx
+          --results-directory ${{ runner.temp }}/TestResults
+
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trx-${{ matrix.label }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/TestResults/*.trx
+          if-no-files-found: warn
+
+
+  # The runner has one display, so the jobs above never reach the part of MonitorLayout this
+  # library exists for: relative positioning, and a key that changes with the arrangement.
+  # Attaching a second, virtual monitor gives A_real_multi_monitor_arrangement_is_coherent something to check.
+  #
+  # Kept as its own job so that a driver install broken by a runner image change is obvious
+  # instead of looking like a test regression in one of the matrix legs.
+  # usbmmidd ships 32- and 64-bit binaries only, so there is no arm64 equivalent of this job.
+  multi-monitor:
+    name: ${{ matrix.label }} ${{ matrix.arch }} with a second monitor
+    runs-on: windows-latest
+
+    # The driver is installed machine-wide, so what varies here is the framework and bitness of the test process reading the arrangement back
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x64, framework: net8.0-windows, label: net8.0 }
+          - { arch: x64, framework: net472, label: net472 }
+          - { arch: x86, framework: net8.0-windows, label: net8.0 }
+          - { arch: x86, framework: net472, label: net472 }
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # Same reason as the test job above: setup-dotnet only installs for the host architecture, and the net8.0-windows tests need WPF.
+      - name: Install the x86 desktop runtime
+        if: matrix.arch == 'x86'
+        shell: pwsh
+        run: |
+          $root = "${env:RUNNER_TEMP}\dotnet-x86"
+          $install = [scriptblock]::Create((Invoke-RestMethod https://dot.net/v1/dotnet-install.ps1))
+
+          # The base runtime first: it is what lays down the host. -Runtime windowsdesktop
+          # only adds the shared framework, so on its own it leaves a root with no
+          # hostfxr.dll and the apphost reports ".NET location: Not found".
+          & $install -Channel 8.0 -Runtime dotnet -Architecture x86 -InstallDir $root
+          & $install -Channel 8.0 -Runtime windowsdesktop -Architecture x86 -InstallDir $root
+
+          "DOTNET_ROOT_X86=$root" >> $env:GITHUB_ENV
+          "DOTNET_ROOT(x86)=$root" >> $env:GITHUB_ENV
+
+      - name: Attach a virtual monitor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          Add-Type -AssemblyName System.Windows.Forms
+
+          # The archive is committed under usbmmidd_v2; the readme beside it covers what
+          # it is, where it came from, and how to update it.
+          $unpacked = Join-Path $env:RUNNER_TEMP 'usbmmidd'
+          Expand-Archive usbmmidd_v2/usbmmidd_v2.zip -DestinationPath $unpacked
+
+          Push-Location (Join-Path $unpacked 'usbmmidd_v2')
+          .\deviceinstaller64.exe install usbmmidd.inf usbmmidd
+
+          # deviceinstaller returns a failing exit code now and then on a hosted runner,
+          # sometimes having attached the monitor anyway. Judge it on whether a second
+          # display actually turned up, which is the thing these legs need.
+          foreach ($attempt in 1..3) {
+            .\deviceinstaller64.exe enableidd 1
+            Start-Sleep -Seconds 5
+            if ([System.Windows.Forms.Screen]::AllScreens.Count -ge 2) { break }
+            "Attempt ${attempt} left one display; retrying."
+          }
+
+          if ([System.Windows.Forms.Screen]::AllScreens.Count -lt 2) {
+            throw "No virtual monitor attached, so this leg cannot test a multi-monitor arrangement."
+          }
+
+          # The check above is the verdict, not deviceinstaller's last exit code.
+          $global:LASTEXITCODE = 0
+
+      - name: Show the arrangement the tests will see
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms
+          [System.Windows.Forms.Screen]::AllScreens |
+            Format-Table DeviceName, Primary, Bounds, WorkingArea -AutoSize
+
+      - name: Test
+        run: >-
+          dotnet test
+          --project RestoreWindowPosition.Tests/RestoreWindowPosition.Tests.csproj
+          --configuration Release
+          --framework ${{ matrix.framework }}
+          --arch ${{ matrix.arch }}
+          -p:TargetLatestRuntimePatch=false
+          --report-trx
+          --report-trx-filename RestoreWindowPosition-${{ matrix.label }}-${{ matrix.arch }}-2mon.trx
+          --results-directory ${{ runner.temp }}/TestResults
+
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trx-${{ matrix.label }}-${{ matrix.arch }}-2mon
+          path: ${{ runner.temp }}/TestResults/*.trx
+          if-no-files-found: warn
+
+  package:
+    needs: [test, multi-monitor]
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build
+        run: dotnet build RestoreWindowPosition.slnx -c Release
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package
+          path: artifacts/package/release/*.nupkg
+          if-no-files-found: error
+
+  # publish-unit-test-result-action reads the event that triggered this run to tell whether the pull request came from a fork. 
+  # Left with the workflow_run payload it assumes one and quietly drops the comment. Its own job, so it still runs when the matrix fails
+  event-file:
+    name: event file
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
